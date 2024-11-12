@@ -13,7 +13,7 @@ export class Composer {
     this.encoder = new Encoder(device, debug);
 
     if (debug) {
-      this.stats = new Stats("Comp").showPanel(1);
+      this.stats = new Stats("comp").showPanel(1);
     }
   }
 

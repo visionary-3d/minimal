@@ -26,14 +26,6 @@ export const startApp = async () => {
 
   @buffer(@size(info.resolution.x * info.resolution.y * 3)) var<storage, read_write> output_buffer: array<f32>;
 
-  struct Uniforms {
-    color: vec3<f32>,
-  };
-
-  // ! Struct Types are important because the initializer needs a name to work with
-  // ! so "uniforms: vec3<f32>;" is not allowed...
-  @uniform(@color(0.05, 0.7, 0.4)) var<uniform> uniforms: Uniforms;
-
   `;
 
   const colorizeShader = /* wgsl */ `
@@ -43,7 +35,10 @@ export const startApp = async () => {
   struct Uniforms {
     color: vec3<f32>,
   };
-  @ref(colorize.uniforms) var<uniform> uniforms: Uniforms;
+
+  // ! Struct Types are important because the initializer needs a name to work with
+  // ! so "uniforms: vec3<f32>;" is not allowed...
+  @uniform(@color(0.05, 0.7, 0.4)) var<uniform> uniforms: Uniforms;
 
   @compute(info.resolution)
   fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -85,8 +80,7 @@ export const startApp = async () => {
   const resolutionWildcard = new WildCard("resolution", resolution);
 
   window.addEventListener("resize", () => {
-    resolution.set(window.innerWidth, window.innerHeight);
-    resolutionWildcard.update();
+    resolutionWildcard.set(resolution.set(window.innerWidth, window.innerHeight));
   });
 
   const resourceNode = new Shader(device, "resource", computeShader, [resolutionWildcard]);
@@ -97,10 +91,7 @@ export const startApp = async () => {
 
   colorizeNode.setInputs({
     input_buffer: { shader: resourceNode, name: "output_buffer" },
-    uniforms: {
-      shader: resourceNode,
-      name: "uniforms",
-    },
+
   });
   redNode.setInputs({ input_buffer: { shader: resourceNode, name: "output_buffer" } });
 
@@ -109,7 +100,7 @@ export const startApp = async () => {
   const gui = new GUI();
 
   // pass in the uniform buffer name + the individual uniform name
-  const colorUniform = resourceNode.getUniform("uniforms", "color");
+  const colorUniform = colorizeNode.getUniform("uniforms", "color");
 
   // load in default values of the uniform
   const colorStruct = new Color().fromArray(colorUniform.array as number[]);

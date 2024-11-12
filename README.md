@@ -14,6 +14,3 @@ Learn more about minimal, and how to use it by watching this video:
 ```bash
 npm i minimal
 ```
-
-## Dev
-

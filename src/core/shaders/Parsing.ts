@@ -29,7 +29,7 @@ const DECORATORS = {
 export class WildCard {
   shaders: Shader[] = [];
 
-  constructor(public readonly name: string, public readonly value: number[]) {
+  constructor(public readonly name: string, public value: number[]) {
     if (value.length < 1 || value.length > 4) {
       throw new Error(`WildCard value must have 1-4 components, got ${value.length}`);
     }
@@ -37,6 +37,12 @@ export class WildCard {
 
   addDependency(shader: Shader) {
     this.shaders.push(shader);
+  }
+
+  set(val: number[]) {
+    this.value = val;
+
+    this.update()
   }
 
   update() {

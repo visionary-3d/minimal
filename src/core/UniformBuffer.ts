@@ -60,10 +60,13 @@ export class Uniform<T> {
     } else {
       this.array = [input];
     }
+
+    this.update()
   }
 
   set(value: UniformReference<T>) {
     this.value = value;
+    this.update()
   }
 
   copy(u: Uniform<T>) {
@@ -223,7 +226,7 @@ export class UniformBuffer {
       const u = uniforms[i];
       const offset = this.offsets[i];
 
-      u.update();
+      // u.update();
 
       const value = u.array;
 
