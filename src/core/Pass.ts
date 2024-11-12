@@ -32,11 +32,6 @@ export class Composer {
 
   removePass(pass: Pass) {
     this.passes.splice(this.passes.indexOf(pass), 1);
-
-    for (let i = 1; i < this.passes.length; i++) {
-      const nextPass = this.passes[i];
-      nextPass.resize();
-    }
   }
 
   update() {
@@ -64,7 +59,6 @@ export class Pass {
     this.outputs = new Map();
   }
 
-  resize(renderSize?: any) {}
   update(encode: Encoder, debug?: boolean) {}
 }
 

@@ -1,5 +1,7 @@
 /// <reference types="@webgpu/types" />
 
+import { Shader } from "../passes/Shader";
+
 // Core constants
 const DECORATORS = {
   texture: "@texture", // creator decorator for textures and storage textures
@@ -25,9 +27,22 @@ const DECORATORS = {
 } as const;
 
 export class WildCard {
+  shaders: Shader[] = [];
+
   constructor(public readonly name: string, public readonly value: number[]) {
     if (value.length < 1 || value.length > 4) {
       throw new Error(`WildCard value must have 1-4 components, got ${value.length}`);
+    }
+  }
+
+  addDependency(shader: Shader) {
+    this.shaders.push(shader);
+  }
+
+  update() {
+    for (let i = 0; i < this.shaders.length; i++) {
+      const s = this.shaders[i];
+      s.reset();
     }
   }
 
@@ -1501,7 +1516,6 @@ interface ShaderMetadata {
   metadata?: ComputeShaderMetadata | FragmentShaderMetadata;
   resources: ResourceBase[];
   code: string;
-  dependsOnResolution: boolean;
 }
 
 // Default workgroup sizes based on dimension
@@ -1610,7 +1624,6 @@ const parseFragmentMetadata = (
   resources: ResourceBase[],
   wildcards: WildCard[] = []
 ): FragmentShaderMetadata => {
-
   // Parse target texture from @fragment decorator
   const fragmentMatch = code.match(SHADER_PATTERNS.fragmentDecorator);
   if (!fragmentMatch) {
@@ -1648,7 +1661,6 @@ const parseFragmentMetadata = (
     view = "canvas";
   }
 
-
   // Parse optional resolve target
   const resolveMatch = code.match(SHADER_PATTERNS.resolveDecorator);
   const resolveTarget = resolveMatch ? resolveMatch[1].trim() : undefined;
@@ -1662,8 +1674,6 @@ const parseFragmentMetadata = (
   if (viewResource && viewResource.usedInBody) {
     throw new Error(`Cannot render to texture '${view}' as it is used within the shader body`);
   }
-
-
 
   return {
     view,
@@ -1887,10 +1897,9 @@ const parseShader = (inputCode: string, wildcards: WildCard[] = []): ShaderMetad
     const resources = parseResources(shaderCode, wildcards);
     const code = transformToWGSL(shaderCode, resources, wildcards);
 
-    // Update wildcard dependency check
-    const dependsOnResolution = resources.some((resource) =>
-      resource.wildcards.some((wildcard) => wildcards.some((w) => w.name === wildcard.replace(WILDCARDS_PREFIX, "")))
-    );
+    // const dependsOnResolution = resources.some((resource) =>
+    //   resource.wildcards.some((wildcard) => wildcards.some((w) => w.name === wildcard.replace(WILDCARDS_PREFIX, "")))
+    // );
 
     if (hasCompute) {
       return {
@@ -1898,7 +1907,6 @@ const parseShader = (inputCode: string, wildcards: WildCard[] = []): ShaderMetad
         metadata: parseComputeMetadata(shaderCode, wildcards),
         resources,
         code,
-        dependsOnResolution,
       };
     }
 
@@ -1908,7 +1916,6 @@ const parseShader = (inputCode: string, wildcards: WildCard[] = []): ShaderMetad
         metadata: parseFragmentMetadata(shaderCode, resources, wildcards),
         resources,
         code,
-        dependsOnResolution,
       };
     }
 
@@ -1916,7 +1923,6 @@ const parseShader = (inputCode: string, wildcards: WildCard[] = []): ShaderMetad
       type: "resource",
       resources,
       code,
-      dependsOnResolution,
     };
   } catch (error: any) {
     throw new Error(`Shader parsing error: ${error.message}`);
@@ -1924,7 +1930,7 @@ const parseShader = (inputCode: string, wildcards: WildCard[] = []): ShaderMetad
 };
 interface ShaderMetadataDiff {
   shaderReset: boolean;
-  dependsOnResolutionChanged: boolean;
+  // dependsOnResolutionChanged: boolean;
   deletions: ResourceBase[];
   additions: ResourceBase[];
   reorders: ResourceBase[];
@@ -1933,7 +1939,7 @@ interface ShaderMetadataDiff {
 function diffShaderMetadata(before: ShaderMetadata, after: ShaderMetadata): ShaderMetadataDiff {
   const result: ShaderMetadataDiff = {
     shaderReset: false,
-    dependsOnResolutionChanged: false,
+    // dependsOnResolutionChanged: false,
     deletions: [],
     additions: [],
     reorders: [],
@@ -1941,7 +1947,7 @@ function diffShaderMetadata(before: ShaderMetadata, after: ShaderMetadata): Shad
 
   // Step 1: Check if shader needs reset
   result.shaderReset = before.type !== after.type || !areMetadataEqual(before.metadata, after.metadata);
-  result.dependsOnResolutionChanged = before.dependsOnResolution !== after.dependsOnResolution;
+  // result.dependsOnResolutionChanged = before.dependsOnResolution !== after.dependsOnResolution;
 
   // Step 2 & 3: Handle resource changes
   const beforeMap = new Map(before.resources.map((r) => [getResourceKey(r), r]));

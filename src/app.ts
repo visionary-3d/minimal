@@ -1,12 +1,15 @@
 import { Composer } from "./core/Pass";
-import { ShaderNode } from "./core/passes/ShaderNode";
+import { Shader } from "./core/passes/Shader.js";
 
 // @ts-ignore
 import { GUI } from "./core/libs/lil-gui.module.min.js";
 import { Color } from "./core/math/Color.js";
-import { Uniform } from "./core/UniformBuffer.js";
+import { Vector2 } from "./core/math/Vector2.js";
+import { WildCard } from "./core/shaders/Parsing.js";
 
 export const startApp = async () => {
+  // create webgpu device
+
   const navigator = window.navigator as any;
   if (!navigator.gpu) throw new Error("WebGPU not supported, this application will not run.");
 
@@ -17,6 +20,8 @@ export const startApp = async () => {
     requiredFeatures: ["timestamp-query"],
   })) as GPUDevice;
 
+  // write shaders
+
   const computeShader = /* wgsl */ `
 
   @buffer(@size(info.resolution.x * info.resolution.y * 3)) var<storage, read_write> output_buffer: array<f32>;
@@ -25,7 +30,8 @@ export const startApp = async () => {
     color: vec3<f32>,
   };
 
-  // ! Struct Types are important because of initializer
+  // ! Struct Types are important because the initializer needs a name to work with
+  // ! so "uniforms: vec3<f32>;" is not allowed...
   @uniform(@color(0.05, 0.7, 0.4)) var<uniform> uniforms: Uniforms;
 
   `;
@@ -73,24 +79,30 @@ export const startApp = async () => {
 
   `;
 
-  const resourceNode = new ShaderNode(device, "resource", computeShader);
-  const colorizeNode = new ShaderNode(device, "colorize", colorizeShader);
-  const redNode = new ShaderNode(device, "uv_pass", fragmentShader);
+  // create shaders
+
+  const resolution = new Vector2(window.innerWidth, window.innerHeight);
+  const resolutionWildcard = new WildCard("resolution", resolution);
+
+  window.addEventListener("resize", () => {
+    resolution.set(window.innerWidth, window.innerHeight);
+    resolutionWildcard.update();
+  });
+
+  const resourceNode = new Shader(device, "resource", computeShader, [resolutionWildcard]);
+  const colorizeNode = new Shader(device, "colorize", colorizeShader, [resolutionWildcard]);
+  const redNode = new Shader(device, "uv_pass", fragmentShader, [resolutionWildcard]);
 
   // set inputs
+
   colorizeNode.setInputs({
-    input_buffer: { node: resourceNode, name: "output_buffer" },
+    input_buffer: { shader: resourceNode, name: "output_buffer" },
     uniforms: {
-      node: resourceNode,
+      shader: resourceNode,
       name: "uniforms",
     },
   });
-  redNode.setInputs({ input_buffer: { node: resourceNode, name: "output_buffer" } });
-
-  // create inputs
-  resourceNode.createInputs();
-  colorizeNode.createInputs();
-  redNode.createInputs();
+  redNode.setInputs({ input_buffer: { shader: resourceNode, name: "output_buffer" } });
 
   // gui
 

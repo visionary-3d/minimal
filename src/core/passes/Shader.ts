@@ -37,7 +37,7 @@ function setRenderSize(resolutionVector: Vector2, device: GPUDevice) {
   );
 }
 
-export class ShaderNode extends ShaderPass {
+export class Shader extends ShaderPass {
   infoLayout: GPUBindGroupLayout;
   fragmentPipeline: GPURenderPipeline | null = null;
   computePipeline: GPUComputePipeline | null = null;
@@ -60,7 +60,7 @@ export class ShaderNode extends ShaderPass {
   uniformsMap: Map<string, Uniform<any>>;
   uniformBuffers: UniformBuffer[];
 
-  constructor(device: GPUDevice, name: string, shader: string) {
+  constructor(device: GPUDevice, name: string, shader: string, wildcards: WildCard[] = []) {
     const resolutionVec2 = new Vector2();
     const uResolution = new Uniform(resolutionVec2);
     const uPixelRatio = new Uniform(0);
@@ -75,7 +75,6 @@ export class ShaderNode extends ShaderPass {
 
     setRenderSize(resolutionVec2, device);
 
-    const wildcards = [new WildCard("resolution", resolutionVec2)];
     const parsed = parseShader(shader, wildcards);
 
     // Base shader code that's common for both compute and fragment shaders
@@ -134,6 +133,8 @@ export class ShaderNode extends ShaderPass {
     this.name = name;
     this.parsed = parsed;
     this.wildcards = wildcards;
+
+    this.dependOnWildCards();
 
     this.uResolution = uResolution;
     this.uPixelRatio = uPixelRatio;
@@ -216,8 +217,18 @@ export class ShaderNode extends ShaderPass {
     } as any;
 
     window.addEventListener("resize", () => {
-      this.resize();
+      const res = this.uResolution.value as Vector2;
+      setRenderSize(res, this.device);
+      this.uAspect.set(res.x / res.y);
+      this.uPixelRatio.set(window.devicePixelRatio);
     });
+  }
+
+  private dependOnWildCards() {
+    for (let i = 0; i < this.wildcards.length; i++) {
+      const w = this.wildcards[i];
+      w.addDependency(this);
+    }
   }
 
   private createComputePipeline(device: GPUDevice) {
@@ -274,38 +285,33 @@ export class ShaderNode extends ShaderPass {
     return undefined;
   }
 
-  resize(renderSize?: any): void {
-    if (this.parsed.dependsOnResolution) {
-      const oldParsed = this.parsed;
-      this.parsed = parseShader(this.oldShader, this.wildcards);
-      const diff = diffShaderMetadata(oldParsed, this.parsed);
+  reset() {
+    const oldParsed = this.parsed;
+    this.parsed = parseShader(this.oldShader, this.wildcards);
+    const diff = diffShaderMetadata(oldParsed, this.parsed);
 
-      this.removeResources(diff.deletions);
-      this.createResources(diff.additions);
+    this.removeResources(diff.deletions);
+    this.createResources(diff.additions);
 
-      this.createInputs();
+    this.createInputs();
 
-      // Recreate pipeline if needed
-      if (diff.shaderReset) {
-        const device = this.device;
-        if (this.parsed.type === "compute") {
-          this.createComputePipeline(device);
-          this.fragmentPipeline = null;
-        } else if (this.parsed.type === "fragment") {
-          this.createFragmentPipeline(device);
-          this.computePipeline = null;
-        }
+    // Recreate pipeline if needed
+    if (diff.shaderReset) {
+      const device = this.device;
+      if (this.parsed.type === "compute") {
+        this.createComputePipeline(device);
+        this.fragmentPipeline = null;
+      } else if (this.parsed.type === "fragment") {
+        this.createFragmentPipeline(device);
+        this.computePipeline = null;
       }
     }
 
     if (this.canvas) {
-      const res = this.uResolution.value as Vector2;
-      setRenderSize(res, this.device);
-      this.uAspect.set(res.x / res.y);
-      this.uPixelRatio.set(window.devicePixelRatio);
-
-      this.canvas.width = res.x;
-      this.canvas.height = res.y;
+      const m = this.parsed.metadata as FragmentShaderMetadata;
+      const [x, y] = m.canvasSize as [number, number];
+      this.canvas.width = x;
+      this.canvas.height = y;
     }
   }
 
@@ -313,10 +319,13 @@ export class ShaderNode extends ShaderPass {
     for (const key in inputs) {
       this.inputs.set(key, inputs[key]);
     }
+
+    // now that the inputs are provided we can create the input bindgroup
+    this.createInputs();
   }
 
   createInputs() {
-    this.bindGroup = this.initBindGroup(this.parsed.resources);
+    this.bindGroup = this.createBindGroup(this.parsed.resources);
   }
 
   removeResources(resources: ResourceBase[]) {
@@ -502,7 +511,7 @@ export class ShaderNode extends ShaderPass {
     });
   }
 
-  initBindGroup(resources: ResourceBase[]) {
+  createBindGroup(resources: ResourceBase[]) {
     const entries: GPUBindGroupEntry[] = [];
 
     for (const resource of resources) {
@@ -540,7 +549,7 @@ export class ShaderNode extends ShaderPass {
           const refResource = resource as ReferenceObject;
           const referencedResource = this.inputs.get(refResource.name);
           if (!referencedResource) throw Error(`ShaderNode: Reference ${refResource.name} not found!`);
-          const r = referencedResource.node.outputs.get(referencedResource.name);
+          const r = referencedResource.shader.outputs.get(referencedResource.name);
 
           if (r) {
             if (r instanceof GPUTexture) {
