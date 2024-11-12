@@ -30,7 +30,7 @@ export const startApp = async () => {
 
   const colorizeShader = /* wgsl */ `
 
-  @ref(colorize.output_buffer) var<storage, read_write> input_buffer: array<f32>;
+  @ref(resource.output_buffer) var<storage, read_write> input_buffer: array<f32>;
 
   struct Uniforms {
     color: vec3<f32>,
@@ -52,7 +52,7 @@ export const startApp = async () => {
 
   const fragmentShader = /* wgsl */ `
 
-  @ref(colorize.output_buffer) var<storage, read> input_buffer: array<f32>;
+  @ref(resource.output_buffer) var<storage, read> input_buffer: array<f32>;
 
   fn get_uvs(coord: vec4<f32>) -> vec2<f32> {
     var uv = coord.xy / info.resolution;
@@ -87,13 +87,23 @@ export const startApp = async () => {
   const colorizeNode = new Shader(device, "colorize", colorizeShader, [resolutionWildcard]);
   const redNode = new Shader(device, "uv_pass", fragmentShader, [resolutionWildcard]);
 
-  // set inputs
+  const composer = new Composer(device, true);
 
-  colorizeNode.setInputs({
-    input_buffer: { shader: resourceNode, name: "output_buffer" },
+  // add all the shaders
+  composer.addShader(resourceNode);
+  composer.addShader(colorizeNode);
+  composer.addShader(redNode);
 
-  });
-  redNode.setInputs({ input_buffer: { shader: resourceNode, name: "output_buffer" } });
+  // set all the inputs. prepare for running.
+  composer.setInputs();
+
+  function tick() {
+    composer.update();
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
 
   // gui
 
@@ -111,18 +121,4 @@ export const startApp = async () => {
     // update the uniform
     colorUniform.set(newColor);
   });
-
-  const composer = new Composer(device, true);
-
-  composer.addPass(resourceNode);
-  composer.addPass(colorizeNode);
-  composer.addPass(redNode);
-
-  function tick() {
-    composer.update();
-
-    requestAnimationFrame(tick);
-  }
-
-  requestAnimationFrame(tick);
 };
