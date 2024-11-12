@@ -1,6 +1,6 @@
 /// <reference types="@webgpu/types" />
 
-import { Shader } from "../passes/Shader";
+import { Shader } from "./Shader";
 
 // Core constants
 const DECORATORS = {
@@ -39,16 +39,12 @@ export class WildCard {
     this.shaders.push(shader);
   }
 
-  set(val: number[]) {
-    this.value = val;
+  set(...values: number[]) {
+    this.value = values;
 
-    this.update()
-  }
-
-  update() {
     for (let i = 0; i < this.shaders.length; i++) {
       const s = this.shaders[i];
-      s.reset();
+      s.markReset();
     }
   }
 

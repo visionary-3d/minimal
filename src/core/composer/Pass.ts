@@ -1,9 +1,9 @@
-import Stats from "./libs/Stats";
-import Encoder from "./passes/Encoder";
-import { Shader } from "./passes/Shader";
-import { ReferenceObject, RESOURCE_TYPE } from "./shaders/Parsing";
-import { GPUResourceType, GPUSource } from "./types/types";
-import { UniformBuffer, UniformList } from "./UniformBuffer";
+import Stats from "../libs/Stats";
+import { ReferenceObject, RESOURCE_TYPE } from "../shaders/Parsing";
+import { Shader } from "../shaders/Shader";
+import { UniformBuffer, UniformList } from "../tools/UniformBuffer";
+import { GPUResourceType, GPUSource } from "../types/types";
+import Encoder from "./Encoder";
 
 export class Composer {
   shaders: Shader[];

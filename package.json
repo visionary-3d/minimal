@@ -1,16 +1,47 @@
 {
-  "name": "msl",
+  "name": "minimal",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
-  },
   "devDependencies": {
     "@webgpu/types": "^0.1.51",
-    "typescript": "~5.6.2",
+    "typescript": "~5.6.2"
+  },
+  "files": [
+    "dist/*",
+    "src/*"
+  ],
+  "main": "./src/index.js",
+  "exports": "./src/index.js",
+  "description": "Minimal is thin layer of abstraction on top of WebGPU with the purpose of making Shader Programming, GPU Simulations and Parallel Programming much easier.",
+  "dependencies": {
+    "esbuild": "^0.21.5",
+    "nanoid": "^3.3.7",
+    "picocolors": "^1.1.1",
+    "postcss": "^8.4.47",
+    "rollup": "^4.24.4",
+    "source-map-js": "^1.2.1",
     "vite": "^5.4.10"
-  }
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/visionary-3d/minimal.git"
+  },
+  "keywords": [
+    "webgpu",
+    "minimal",
+    "msl",
+    "wgsl",
+    "shader",
+    "webgpu-framework"
+  ],
+  "author": "arya3d",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/visionary-3d/minimal/issues"
+  },
+  "homepage": "https://github.com/visionary-3d/minimal#readme"
 }

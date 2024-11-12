@@ -1,6 +1,9 @@
+import { ShaderPass } from "../composer/Pass";
 import { Vector2 } from "../math/Vector2";
-import { ShaderPass } from "../Pass";
 
+import Encoder from "../composer/Encoder";
+import { Uniform, UniformBuffer } from "../tools/UniformBuffer";
+import { GPUSource } from "../types/types";
 import {
   BufferObject,
   ComputeShaderMetadata,
@@ -16,10 +19,7 @@ import {
   TextureObject,
   UniformObject,
   WildCard,
-} from "../shaders/Parsing";
-import { GPUSource } from "../types/types";
-import { Uniform, UniformBuffer } from "../UniformBuffer";
-import Encoder from "./Encoder";
+} from "./Parsing";
 
 // TODO: parent.child
 function pc(parent: string, child: string) {
@@ -38,27 +38,27 @@ function setRenderSize(resolutionVector: Vector2, device: GPUDevice) {
 }
 
 export class Shader extends ShaderPass {
-  infoLayout: GPUBindGroupLayout;
-  fragmentPipeline: GPURenderPipeline | null = null;
-  computePipeline: GPUComputePipeline | null = null;
-  infoBindGroup: GPUBindGroup;
-  renderPassDescriptor: any;
-  layout: GPUBindGroupLayout;
+  private infoLayout: GPUBindGroupLayout;
+  private fragmentPipeline: GPURenderPipeline | null = null;
+  private computePipeline: GPUComputePipeline | null = null;
+  private infoBindGroup: GPUBindGroup;
+  private renderPassDescriptor: any;
+  private layout: GPUBindGroupLayout;
   parsed: ShaderMetadata;
-  bindGroup!: GPUBindGroup;
+  private bindGroup!: GPUBindGroup;
   name: string;
-  output: GPUTexture | undefined;
-  oldShader: string;
+  private oldShader: string;
   shaderStage: number;
   wildcards: WildCard[];
   canvas?: HTMLCanvasElement;
   context?: GPUCanvasContext;
-  uResolution: Uniform<Vector2>;
-  uPixelRatio: Uniform<number>;
-  uAspect: Uniform<number>;
-  uTime: Uniform<number>;
+  private uResolution: Uniform<Vector2>;
+  private uPixelRatio: Uniform<number>;
+  private uAspect: Uniform<number>;
+  private uTime: Uniform<number>;
   uniformsMap: Map<string, Uniform<any>>;
-  uniformBuffers: UniformBuffer[];
+  private uniformBuffers: UniformBuffer[];
+  private shouldReset: boolean = false;
 
   constructor(device: GPUDevice, name: string, shader: string, wildcards: WildCard[] = []) {
     const resolutionVec2 = new Vector2();
@@ -285,7 +285,11 @@ export class Shader extends ShaderPass {
     return undefined;
   }
 
-  reset() {
+  markReset() {
+    this.shouldReset = true;
+  }
+
+  private reset() {
     const oldParsed = this.parsed;
     this.parsed = parseShader(this.oldShader, this.wildcards);
     const diff = diffShaderMetadata(oldParsed, this.parsed);
@@ -313,6 +317,8 @@ export class Shader extends ShaderPass {
       this.canvas.width = x;
       this.canvas.height = y;
     }
+
+    this.shouldReset = false;
   }
 
   setInputs(inputs: Record<string, GPUSource>) {
@@ -589,6 +595,10 @@ export class Shader extends ShaderPass {
   }
 
   update(encoder: Encoder, debug: boolean = false) {
+    if (this.shouldReset) {
+      this.reset();
+    }
+
     const time = performance.now() / 1000;
     this.uTime.set(time);
     this.uniformBuffer.update();

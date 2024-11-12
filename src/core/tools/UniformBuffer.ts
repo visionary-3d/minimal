@@ -1,8 +1,8 @@
-import { Matrix3 } from "./math/Matrix3";
-import { Matrix4 } from "./math/Matrix4";
-import { Vector2 } from "./math/Vector2";
-import { Vector3 } from "./math/Vector3";
-import { Vector4 } from "./math/Vector4";
+import { Matrix3 } from "../math/Matrix3";
+import { Matrix4 } from "../math/Matrix4";
+import { Vector2 } from "../math/Vector2";
+import { Vector3 } from "../math/Vector3";
+import { Vector4 } from "../math/Vector4";
 
 // Pad to 16 byte chunks of 2, 4 (std140 layout)
 export const pad2 = (n: number) => n + (n % 2);
@@ -61,12 +61,12 @@ export class Uniform<T> {
       this.array = [input];
     }
 
-    this.update()
+    this.update();
   }
 
   set(value: UniformReference<T>) {
     this.value = value;
-    this.update()
+    this.update();
   }
 
   copy(u: Uniform<T>) {
