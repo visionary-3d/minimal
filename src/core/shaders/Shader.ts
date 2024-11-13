@@ -38,25 +38,25 @@ function setRenderSize(resolutionVector: Vector2, device: GPUDevice) {
 }
 
 export class Shader extends ShaderPass {
+  name: string;
+  parsed: ShaderMetadata;
+  wildcards: WildCard[];
+  uniformsMap: Map<string, Uniform<any>>;
   private infoLayout: GPUBindGroupLayout;
   private fragmentPipeline: GPURenderPipeline | null = null;
   private computePipeline: GPUComputePipeline | null = null;
   private infoBindGroup: GPUBindGroup;
   private renderPassDescriptor: any;
   private layout: GPUBindGroupLayout;
-  parsed: ShaderMetadata;
   private bindGroup!: GPUBindGroup;
-  name: string;
   private oldShader: string;
-  shaderStage: number;
-  wildcards: WildCard[];
-  canvas?: HTMLCanvasElement;
-  context?: GPUCanvasContext;
+  private shaderStage: number;
+  private canvas?: HTMLCanvasElement;
+  private context?: GPUCanvasContext;
   private uResolution: Uniform<Vector2>;
   private uPixelRatio: Uniform<number>;
   private uAspect: Uniform<number>;
   private uTime: Uniform<number>;
-  uniformsMap: Map<string, Uniform<any>>;
   private uniformBuffers: UniformBuffer[];
   private shouldReset: boolean = false;
 
@@ -174,7 +174,6 @@ export class Shader extends ShaderPass {
         this.canvas.width = x;
         this.canvas.height = y;
         this.canvas.style.position = "absolute";
-        document.body.appendChild(this.canvas);
 
         const context = this.canvas.getContext("webgpu");
         if (!context) throw Error("ShaderNode: WebGPU Context Creation Failed!");
@@ -222,6 +221,11 @@ export class Shader extends ShaderPass {
       this.uAspect.set(res.x / res.y);
       this.uPixelRatio.set(window.devicePixelRatio);
     });
+  }
+  
+  getCanvas() {
+    if(this.canvas) return this.canvas;
+    else throw Error("This shader doesn't have a canvas decorator (@canvas), so no canvas element was created!")
   }
 
   private dependOnWildCards() {

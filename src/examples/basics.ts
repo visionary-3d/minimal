@@ -73,6 +73,8 @@ export const startApp = async () => {
   const colorizeNode = new Shader(device, "colorize", cShader, [resolution]);
   const redNode = new Shader(device, "uv_pass", fShader, [resolution]);
 
+  document.body.appendChild(redNode.getCanvas());
+
   const composer = new Composer(device, true);
 
   // add all the shaders
