@@ -12,5 +12,5 @@ Learn more about minimal, and how to use it by watching this video:
 ## Installation
 
 ```bash
-npm i minimal
+npm i minimal-gpu
 ```
