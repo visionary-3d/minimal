@@ -67,7 +67,10 @@ export class WildCard {
 // Replace the existing WILDCARDS constant with:
 const WILDCARDS_PREFIX = "info." as const;
 
-// New helper function to handle wildcard evaluation
+function floorArray(arr: number[]) {
+  return arr.map((n) => Math.floor(n));
+}
+
 function evaluateWildcardExpression(expression: string, wildcards: WildCard[]): number[] {
   // Find all wildcard usages in the expression
   const wildcardPattern = new RegExp(`${WILDCARDS_PREFIX}(\\w+)(\\.[xyzwrgba]+)?`, "g");
@@ -469,7 +472,7 @@ const evaluateMathExpression = (expression: string): number => {
   }
 };
 
-const evaluateResolutionExpression = (input: string, expectedDimensions: number, wildcards: WildCard[]): number[] => {
+const evaluateSizeExpression = (input: string, expectedDimensions: number, wildcards: WildCard[]): number[] => {
   const expression = input.trim();
 
   if (/^\d+$/.test(expression)) {
@@ -506,10 +509,13 @@ const validateAndResolveTextureSize = (
     let resolvedSizes: number[];
 
     if (sizeParams.length === 1) {
-      resolvedSizes = evaluateResolutionExpression(sizeParams[0], 1, wildcards).flat();
+      resolvedSizes = evaluateSizeExpression(sizeParams[0], 1, wildcards).flat();
     } else {
-      resolvedSizes = sizeParams.map((param) => evaluateResolutionExpression(param, 1, wildcards)).flat();
+      resolvedSizes = sizeParams.map((param) => evaluateSizeExpression(param, 1, wildcards)).flat();
     }
+
+    // TODO: floor by default -> should be in the docs
+    resolvedSizes = floorArray(resolvedSizes);
 
     // Validate number of dimensions
     if (resolvedSizes.length > expectedDimensions) {
@@ -576,7 +582,9 @@ const validateAndResolveBufferSize = (
   try {
     // Buffer size should always be a single parameter
     // Evaluate the size expression
-    const resolvedSize = evaluateResolutionExpression(sizeParams[0], 1, wildcards).flat();
+
+    // TODO: floor by default -> should be in the docs
+    const resolvedSize = floorArray(evaluateSizeExpression(sizeParams[0], 1, wildcards).flat());
 
     if (resolvedSize.length !== 1) {
       throw new Error(
@@ -939,7 +947,7 @@ const validateAndResolveUniformValues = (
     }
 
     // Evaluate each value, handling resolution wildcards
-    const resolvedValues = values.map((value) => evaluateResolutionExpression(value, 1, wildcards)).flat();
+    const resolvedValues = values.map((value) => evaluateSizeExpression(value, 1, wildcards)).flat();
 
     if (resolvedValues.length !== expectedComponents) {
       throw new Error(
@@ -1643,7 +1651,7 @@ const parseFragmentMetadata = (
     canvas = true;
     try {
       // Use wildcard evaluation for canvas size
-      canvasSize = evaluateWildcardExpression(fragmentMatch[1], wildcards);
+      canvasSize = evaluateSizeExpression(fragmentMatch[1], 2, wildcards);
       // Validate canvas dimensions
       validateCanvasSize(canvasSize, "@canvas");
       view = "canvas";
@@ -1662,6 +1670,9 @@ const parseFragmentMetadata = (
     canvasSize = [window.innerWidth, window.innerHeight];
     view = "canvas";
   }
+
+  // TODO: floor by default -> should be in the docs
+  if (canvasSize) canvasSize = floorArray(canvasSize);
 
   // Parse optional resolve target
   const resolveMatch = code.match(SHADER_PATTERNS.resolveDecorator);
