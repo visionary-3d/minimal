@@ -37,9 +37,9 @@ export const startApp = async () => {
   // ! so "uniforms: vec3<f32>;" is not allowed...
   @uniform(@color(0.05, 0.7, 0.4)) var<uniform> uniforms: Uniforms;
 
-  @compute(wc.resolution.x * wc.resolution.y)
+  @compute(wc.resolution.x, wc.resolution.y)
   fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let index = global_id.x * 3;
+    let index = (global_id.x + global_id.y * u32(window.resolution.x)) * 3;
     input_buffer[index + 0] = uniforms.color.x;
     input_buffer[index + 1] = uniforms.color.y;
     input_buffer[index + 2] = uniforms.color.z;

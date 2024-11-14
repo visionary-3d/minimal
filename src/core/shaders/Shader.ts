@@ -73,7 +73,6 @@ export class Shader extends ShaderPass {
       uTime,
     };
 
-    setRenderSize(resolutionVec2, device);
 
     const parsed = parseShader(shader, wildcards);
 
@@ -220,8 +219,9 @@ export class Shader extends ShaderPass {
       setRenderSize(res, this.device);
       this.uAspect.set(res.x / res.y);
       this.uPixelRatio.set(window.devicePixelRatio);
-      this.uResolution.set(res)
+      this.uResolution.set(res);
     }
+
     resize()
 
     window.addEventListener("resize", resize);
@@ -615,6 +615,7 @@ export class Shader extends ShaderPass {
       const ub = this.uniformBuffers[i];
       ub.update();
     }
+
 
     if (this.parsed.type === "compute" && this.computePipeline) {
       // Compute shader path
