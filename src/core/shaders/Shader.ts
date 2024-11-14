@@ -95,7 +95,7 @@ export class Shader extends ShaderPass {
       time: f32,
     };
 
-    @group(1) @binding(0) var<uniform> info: InternalInfoUniforms;
+    @group(1) @binding(0) var<uniform> window: InternalInfoUniforms;
 
     ${parsed.code}
     `;
