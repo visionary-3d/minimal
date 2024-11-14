@@ -65,7 +65,7 @@ export class WildCard {
 }
 
 // Replace the existing WILDCARDS constant with:
-const WILDCARDS_PREFIX = "info." as const;
+const WILDCARDS_PREFIX = "wc." as const;
 
 function floorArray(arr: number[]) {
   return arr.map((n) => Math.floor(n));

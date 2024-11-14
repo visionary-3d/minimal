@@ -21,7 +21,7 @@ export const startApp = async () => {
 
   const rShader = /* wgsl */ `
 
-  @buffer(@size(info.resolution.x * info.resolution.y * 3)) var<storage, read_write> output_buffer: array<f32>;
+  @buffer(@size(wc.resolution.x * wc.resolution.y * 3)) var<storage, read> output_buffer: array<f32>;
 
   `;
 
@@ -37,9 +37,9 @@ export const startApp = async () => {
   // ! so "uniforms: vec3<f32>;" is not allowed...
   @uniform(@color(0.05, 0.7, 0.4)) var<uniform> uniforms: Uniforms;
 
-  @compute(info.resolution)
+  @compute(wc.resolution.x * wc.resolution.y)
   fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let index = (global_id.x + global_id.y * u32(info.resolution.x)) * 3;
+    let index = global_id.x * 3;
     input_buffer[index + 0] = uniforms.color.x;
     input_buffer[index + 1] = uniforms.color.y;
     input_buffer[index + 2] = uniforms.color.z;
@@ -51,9 +51,9 @@ export const startApp = async () => {
 
   @ref(resource.output_buffer) var<storage, read> input_buffer: array<f32>;
 
-  @fragment(@canvas(info.resolution))
+  @fragment(@canvas(wc.resolution))
   fn main(@builtin(position) coord: vec4f) -> @location(0) vec4<f32> {
-    let index = u32(coord.x + coord.y * info.resolution.x) * 3;
+    let index = u32(coord.x + coord.y * window.resolution.x) * 3;
     let color = vec3(input_buffer[index], input_buffer[index + 1], input_buffer[index + 2]);
 
     return vec4(color, 1);
