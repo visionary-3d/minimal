@@ -215,17 +215,21 @@ export class Shader extends ShaderPass {
       ],
     } as any;
 
-    window.addEventListener("resize", () => {
+    const resize = () => {
       const res = this.uResolution.value as Vector2;
       setRenderSize(res, this.device);
       this.uAspect.set(res.x / res.y);
       this.uPixelRatio.set(window.devicePixelRatio);
-    });
+      this.uResolution.set(res)
+    }
+    resize()
+
+    window.addEventListener("resize", resize);
   }
-  
+
   getCanvas() {
-    if(this.canvas) return this.canvas;
-    else throw Error("This shader doesn't have a canvas decorator (@canvas), so no canvas element was created!")
+    if (this.canvas) return this.canvas;
+    else throw Error("This shader doesn't have a canvas decorator (@canvas), so no canvas element was created!");
   }
 
   private dependOnWildCards() {
