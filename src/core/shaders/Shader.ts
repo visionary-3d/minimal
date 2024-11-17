@@ -73,7 +73,6 @@ export class Shader extends ShaderPass {
       uTime,
     };
 
-
     const parsed = parseShader(shader, wildcards);
 
     // Base shader code that's common for both compute and fragment shaders
@@ -106,11 +105,11 @@ export class Shader extends ShaderPass {
     ${baseCode}
 
     struct VertexOutput {
-      @builtin(position) Position: vec4f,
+      @builtin(position) position: vec4f,
     };
 
     @vertex
-    fn vert_main(@builtin(vertex_index) VertexIndex: u32) -> VertexOutput {
+    fn vert_main(@builtin(vertex_index) v_index: u32) -> VertexOutput {
       var pos = array<vec2f, 6> (
         vec2(-1.0, -1.0),
         vec2(1.0, -1.0),
@@ -121,7 +120,7 @@ export class Shader extends ShaderPass {
       );
 
       var output: VertexOutput;
-      output.Position = vec4f(pos[VertexIndex], 0.0, 1.0);
+      output.position = vec4f(pos[v_index], 0.0, 1.0);
       return output;
     }
     `
@@ -220,9 +219,9 @@ export class Shader extends ShaderPass {
       this.uAspect.set(res.x / res.y);
       this.uPixelRatio.set(window.devicePixelRatio);
       this.uResolution.set(res);
-    }
+    };
 
-    resize()
+    resize();
 
     window.addEventListener("resize", resize);
   }
@@ -590,7 +589,7 @@ export class Shader extends ShaderPass {
     });
   }
 
-  private getComputeWorkgroups(): [number, number, number] {
+  private getComputeWorkgroups(): number[] {
     const metadata = this.parsed.metadata as ComputeShaderMetadata;
     if (!metadata || !metadata.threadCount) {
       throw new Error("Missing compute shader metadata");
@@ -598,8 +597,23 @@ export class Shader extends ShaderPass {
 
     const [x, y, z] = metadata.threadCount;
     const [a, b, c] = metadata.workgroupSize;
+    // console.log(x, y, z)
+    // console.log(a, b, c)
 
-    return [Math.ceil(x / a), Math.ceil(y / b), Math.ceil(z / c)];
+    const cx = Math.ceil(x / a);
+    const cy = Math.ceil(y / b);
+    const cz = Math.ceil(z / c);
+
+    const compute = [cx, cy, cz];
+    const maxInvocation = this.device.limits.maxComputeInvocationsPerWorkgroup;
+
+    if (cx > maxInvocation || cy > maxInvocation || cz > maxInvocation) {
+      throw Error(
+        `Shader: Max compute invocation per workgroup has been exceeded! Max is ${maxInvocation}, but got { x:${cx}, y: ${cy}, z: ${cz} }.`
+      );
+    }
+
+    return compute;
   }
 
   update(encoder: Encoder, debug: boolean = false) {
@@ -615,7 +629,6 @@ export class Shader extends ShaderPass {
       const ub = this.uniformBuffers[i];
       ub.update();
     }
-
 
     if (this.parsed.type === "compute" && this.computePipeline) {
       // Compute shader path

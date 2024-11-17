@@ -33,8 +33,6 @@ export const startApp = async () => {
     color: vec3<f32>,
   };
 
-  // ! Struct Types are important because the initializer needs a name to work with
-  // ! so "uniforms: vec3<f32>;" is not allowed...
   @uniform(@color(0.05, 0.7, 0.4)) var<uniform> uniforms: Uniforms;
 
   @compute(wc.resolution.x, wc.resolution.y)
@@ -111,10 +109,8 @@ export const startApp = async () => {
   });
 };
 
-
 async function init() {
   await startApp();
 }
 
 init();
-
