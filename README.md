@@ -1,6 +1,8 @@
-[![2 (2)](https://github.com/user-attachments/assets/36ca15d5-8fe5-4f5b-aed7-c0b9ec44e82e)](https://youtu.be/Sx39Y--kZvY)
-
 # Minimal :: A Shader Driven WebGPU Framework 💎 ( ⚠ WIP ) 
+
+Introduction Video:
+
+[![2 (2)](https://github.com/user-attachments/assets/36ca15d5-8fe5-4f5b-aed7-c0b9ec44e82e)](https://youtu.be/Sx39Y--kZvY)
 
 ### **⚠ Disclamer: Minimal is WIP and still under heavy development!**
 
