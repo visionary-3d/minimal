@@ -10,6 +10,10 @@ Minimal introduces **MSL** (Minimal Shading Language) which is a **superset of W
 
 Learn more about minimal, and how to use it by watching this video:
 
+## 🔗 **https://youtu.be/Sx39Y--kZvY**
+[![2 (2)](https://github.com/user-attachments/assets/36ca15d5-8fe5-4f5b-aed7-c0b9ec44e82e)](https://youtu.be/Sx39Y--kZvY)
+
+
 ## Installation
 
 ```bash
