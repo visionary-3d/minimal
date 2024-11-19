@@ -1,6 +1,6 @@
 # Minimal :: A Shader Driven WebGPU Framework 💎
 
-⚠ Disclamer: Minimal is WIP and still under heavy development!
+### **⚠ Disclamer: Minimal is WIP and still under heavy development!**
 
 Minimal is a thin layer of abstraction on top of WebGPU with the purpose of making Shader Programming easier!
 
