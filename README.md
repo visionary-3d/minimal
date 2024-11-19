@@ -12,7 +12,7 @@ Minimal introduces **MSL** (Minimal Shading Language) which is a **superset of W
 
 Learn more about minimal, and how to use it by watching this video:
 
-## 🔗 **https://youtu.be/Sx39Y--kZvY**
+### 🔗 **https://youtu.be/Sx39Y--kZvY**
 
 ## Installation
 
