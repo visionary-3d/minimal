@@ -252,7 +252,7 @@ gui.addColor(controlParams, "colorStruct").onChange((newColor: Color) => {
 });
 ```
 
-## Roadmap
+## Roadmap / TODO
 
 - vertex shader support
 - capable 3d renderer
