@@ -1,4 +1,4 @@
-# Minimal :: A Shader Driven WebGPU Framework 💎 ( ⚠ WIP ) 
+# ( ⚠ WIP ) Minimal :: A Shader Driven WebGPU Framework 💎 
 
 ### 🔗 **https://youtu.be/Sx39Y--kZvY**
 
