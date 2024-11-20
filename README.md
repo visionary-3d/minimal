@@ -24,9 +24,9 @@ npm i minimal-gpu
 
 ## Usage
 
-#### **Learn [here](#decorators).**
+### ➜ **Learn [here](#decorators).**
 
-#### **See example [here](#shaders).**
+### ➜ **See example [here](#shaders).**
 
 ### Decorators
 
