@@ -24,6 +24,10 @@ npm i minimal-gpu
 
 ## Usage
 
+Learn [here](#decorators).
+
+See example [here](#shaders).
+
 ### Decorators
 
 Decorators (also known as Attributes in WGSL), are words that start with the **@** symbol.
@@ -144,8 +148,11 @@ const resourceNode = new Shader(device, "resource", rShader, [resolution]);
 
 Shaders are the core building block in Minimal.
 
-Example of Compute Shader:
+General Example of Shaders and Referencing:
 ```ts
+
+import { Color, Composer, GUI, Shader, WildCard } from "minimal-gpu";
+
 // create webgpu device
 
 const navigator = window.navigator as any;
