@@ -80,10 +80,10 @@ example:
 - @lodMinClamp()
 - @lodMaxClamp()
 - @compare()
-- @maxAnisotropy
+- @maxAnisotropy()
 
 example:
-```
+```wgsl
 @sampler(@addressModeU(repeat), @addressModeV(repeat)) var tex_sampler_1: sampler;
 @sampler var tex_sampler_2: sampler;
 ```
