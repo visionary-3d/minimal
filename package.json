@@ -1,6 +1,6 @@
 {
   "name": "minimal-gpu",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "devDependencies": {
     "@webgpu/types": "^0.1.51",

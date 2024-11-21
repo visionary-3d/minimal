@@ -71,16 +71,16 @@ export const startApp = async () => {
 
   const resourceNode = new Shader(device, "resource", rShader, [resolution]);
   const colorizeNode = new Shader(device, "colorize", cShader, [resolution]);
-  const redNode = new Shader(device, "uv_pass", fShader, [resolution]);
+  const fullscreenNode = new Shader(device, "fullscreen", fShader, [resolution]);
 
-  document.body.appendChild(redNode.getCanvas());
+  document.body.appendChild(fullscreenNode.getCanvas());
 
   const composer = new Composer(device, true);
 
   // add all the shaders
   composer.addShader(resourceNode);
   composer.addShader(colorizeNode);
-  composer.addShader(redNode);
+  composer.addShader(fullscreenNode);
 
   // set all the inputs. prepare for running.
   composer.setInputs();
