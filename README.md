@@ -144,6 +144,12 @@ const resourceNode = new Shader(device, "resource", rShader, [resolution]);
 
 ```
 
+### Resources
+
+All resources are normal WebGPU resources (GPUBuffer, GPUTexture, GPUSampler).
+
+To get a gpu resource use the `getResource` function in the shader class. (remember that when you can call `getResource(resource_name)`, you will only recieve a resource if "resource_name" is created within that shader, using a decorator )
+
 ### Shaders
 
 Shaders are the core building block in Minimal.
