@@ -227,6 +227,10 @@ export class Shader extends ShaderPass {
     window.addEventListener("resize", resize);
   }
 
+  getResource(name: string) {
+    return this.outputs.get(name)
+  }
+
   getCanvas() {
     if (this.canvas) return this.canvas;
     else throw Error("This shader doesn't have a canvas decorator (@canvas), so no canvas element was created!");
