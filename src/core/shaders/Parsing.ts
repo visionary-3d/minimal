@@ -1491,39 +1491,49 @@ const SHADER_DECORATORS = {
   resolve: "@resolve",
   workgroupSize: "@workgroup_size",
   canvas: "@canvas",
+  vertex: "@vertex",
+  numThreads: "@num_threads",
+  view: "@view",
+  count: "@count",
 } as const;
 
-// Validation patterns for the new decorators
 const SHADER_PATTERNS = {
-  computeDecorator: new RegExp(`${SHADER_DECORATORS.compute}\\s*\\(([^)]+)\\)`),
-  fragmentDecorator: /@fragment\s*\(\s*(?:@canvas\s*\(([^)]+)\)|@canvas|([^)]+))\s*\)/,
-  resolveDecorator: /@resolve\s*\(\s*([^)]+)\s*\)/,
-  canvasWithResolution: /@canvas\s*\(\s*([^)]+)\s*\)/,
-  canvasNoParams: /@canvas(?!\s*\()/, // Matches @canvas with no parameters
+  computeDecorator: new RegExp(`${SHADER_DECORATORS.compute}\\s*(?:@[^\\n]+\\s*)*fn\\s+(\\w+)`),
+  numThreadsDecorator: new RegExp(`${SHADER_DECORATORS.numThreads}\\s*\\(([^)]+)\\)`),
+  fragmentDecorator: new RegExp(`${SHADER_DECORATORS.fragment}\\s*(?:@[^\\n]+\\s*)*fn\\s+(\\w+)`),
+  vertexDecorator: new RegExp(`${SHADER_DECORATORS.vertex}\\s*(?:@[^\\n]+\\s*)*fn\\s+(\\w+)`),
+  viewDecorator: new RegExp(
+    `${SHADER_DECORATORS.view}\\s*\\(\\s*(${SHADER_DECORATORS.canvas}(?:\\s*\\(([^)]+)\\))?|[^)]+)\\s*\\)`
+  ),
+  resolveDecorator: new RegExp(`${SHADER_DECORATORS.resolve}\\s*\\(([^)]+)\\)`),
   workgroupSizeDecorator: new RegExp(`${SHADER_DECORATORS.workgroupSize}\\s*\\(([^)]+)\\)`),
   canvasDecorator: new RegExp(`${SHADER_DECORATORS.canvas}`),
+  countDecorator: new RegExp(`${SHADER_DECORATORS.count}\\s*\\(([^)]+)\\)`),
 } as const;
 
-// Types for internal use
-type ShaderType = "compute" | "fragment" | "resource";
+type ShaderType = "compute" | "visualizer" | "resource";
 type ComputeDimension = "1d" | "2d" | "3d";
 
 interface ComputeShaderMetadata {
   type: ComputeDimension;
   workgroupSize: [number, number, number];
   threadCount: [number, number, number];
+  mainFunction: string;
 }
 
-interface FragmentShaderMetadata {
+interface VisualizerShaderMetadata {
+  vertexMain: string;
+  fragmentMain: string;
+  vertexCount: number;
   view: string;
   resolveTarget?: string;
   canvas: boolean;
-  canvasSize?: number[]; // Added to store canvas dimensions when specified
+  canvasSize?: number[];
 }
 
 interface ShaderMetadata {
   type: ShaderType;
-  metadata?: ComputeShaderMetadata | FragmentShaderMetadata;
+  metadata?: ComputeShaderMetadata | VisualizerShaderMetadata;
   resources: ResourceBase[];
   code: string;
 }
@@ -1559,11 +1569,17 @@ const parseComputeMetadata = (code: string, wildcards: WildCard[] = []): Compute
   // Parse workgroup count from @compute decorator
   const computeMatch = code.match(SHADER_PATTERNS.computeDecorator);
   if (!computeMatch) {
-    throw new Error("Compute shader must have @compute decorator with workgroup count");
+    throw new Error("Compute shader must have @compute decorator");
+  }
+  const mainFunction = computeMatch[1];
+
+  // Parse thread count from @num_threads decorator
+  const numThreadsMatch = code.match(SHADER_PATTERNS.numThreadsDecorator);
+  if (!numThreadsMatch) {
+    throw new Error("Compute shader must have @num_threads decorator with thread count");
   }
 
-  // Parse provided workgroup count values with wildcard support
-  const rawWorkgroupCount = evaluateWildcardExpression(computeMatch[1], wildcards);
+  const rawWorkgroupCount = evaluateWildcardExpression(numThreadsMatch[1], wildcards);
   const dimension = getComputeDimension(rawWorkgroupCount);
   const workgroupCount = padTo3D(rawWorkgroupCount);
 
@@ -1591,6 +1607,7 @@ const parseComputeMetadata = (code: string, wildcards: WildCard[] = []): Compute
     type: dimension,
     workgroupSize,
     threadCount: workgroupCount,
+    mainFunction,
   };
 };
 
@@ -1629,46 +1646,76 @@ const validateCanvasSize = (size: number[], decoratorName: string): void => {
   });
 };
 
-const parseFragmentMetadata = (
+const parseVisualizerMetadata = (
   code: string,
   resources: ResourceBase[],
   wildcards: WildCard[] = []
-): FragmentShaderMetadata => {
-  // Parse target texture from @fragment decorator
+): VisualizerShaderMetadata => {
+  const vertexMatch = code.match(SHADER_PATTERNS.vertexDecorator);
   const fragmentMatch = code.match(SHADER_PATTERNS.fragmentDecorator);
+
+  if (!vertexMatch) {
+    throw new Error("Visualizer shader must have a vertex shader marked with @vertex");
+  }
   if (!fragmentMatch) {
-    throw new Error("Fragment shader must have @fragment decorator");
+    throw new Error("Visualizer shader must have a fragment shader marked with @fragment");
+  }
+
+  // Validate and parse vertex count
+  const countMatch = code.match(SHADER_PATTERNS.countDecorator);
+  if (!countMatch) {
+    throw new Error("Vertex shader must specify vertex count with @count decorator");
+  }
+
+  let vertexCount: number;
+  try {
+    const countExpression = countMatch[1].trim();
+    // Handle possible wildcards in count
+    const evaluatedCount = evaluateWildcardExpression(countExpression, wildcards);
+    if (evaluatedCount.length !== 1) {
+      throw new Error("@count must evaluate to a single number");
+    }
+    vertexCount = Math.floor(evaluatedCount[0]); // Ensure integer
+
+    if (vertexCount <= 0) {
+      throw new Error("Vertex count must be greater than 0");
+    }
+  } catch (error: any) {
+    throw new Error(`Invalid @count value: ${error.message}`);
+  }
+
+  const vertexMain = vertexMatch[1];
+  const fragmentMain = fragmentMatch[1];
+  // Parse view decorator
+  const viewMatch = code.match(SHADER_PATTERNS.viewDecorator);
+  if (!viewMatch) {
+    throw new Error("Visualizer shader must have @view decorator");
   }
 
   let view: string;
   let canvas = false;
   let canvasSize: number[] | undefined;
 
-  // fragmentMatch[1] will contain canvas parameters if present
-  // fragmentMatch[2] will contain texture name if no @canvas
-  if (fragmentMatch[1] !== undefined) {
-    // We have @canvas with parameters
+  const [, viewTarget, canvasParams] = viewMatch;
+
+  if (viewTarget.startsWith("@canvas")) {
     canvas = true;
-    try {
-      // Use wildcard evaluation for canvas size
-      canvasSize = evaluateSizeExpression(fragmentMatch[1], 2, wildcards);
-      // Validate canvas dimensions
-      validateCanvasSize(canvasSize, "@canvas");
-      view = "canvas";
-    } catch (error: any) {
-      throw new Error(`Invalid @canvas parameters: ${error.message}`);
+    if (canvasParams !== undefined) {
+      try {
+        canvasSize = evaluateSizeExpression(canvasParams, 2, wildcards);
+        validateCanvasSize(canvasSize, "@canvas");
+      } catch (error: any) {
+        throw new Error(`Invalid @canvas parameters: ${error.message}`);
+      }
+    } else {
+      canvasSize = [window.innerWidth, window.innerHeight];
     }
-  } else if (fragmentMatch[2] !== undefined) {
-    // We have a texture name
-    view = fragmentMatch[2].trim();
-    if (!view) {
-      throw new Error("@fragment decorator must specify a target texture");
-    }
-  } else {
-    // We have plain @canvas with no parameters
-    canvas = true;
-    canvasSize = [window.innerWidth, window.innerHeight];
     view = "canvas";
+  } else {
+    view = viewTarget.trim();
+    if (!view) {
+      throw new Error("@view decorator must specify a target texture");
+    }
   }
 
   // TODO: floor by default -> should be in the docs
@@ -1680,7 +1727,7 @@ const parseFragmentMetadata = (
 
   // Validate that we don't have a resolve target for canvas output
   if (canvas && resolveTarget) {
-    throw new Error("Cannot specify @resolve target when using @canvas as fragment output");
+    throw new Error("Cannot specify @resolve target when using @canvas as view output");
   }
 
   const viewResource = resources.find((r) => r.name === view);
@@ -1689,13 +1736,15 @@ const parseFragmentMetadata = (
   }
 
   return {
+    vertexCount,
+    vertexMain,
+    fragmentMain,
     view,
     resolveTarget,
     canvas,
     canvasSize,
   };
 };
-
 interface Section {
   type: "code" | "protected";
   content: string;
@@ -1707,7 +1756,6 @@ interface ResourceBase {
   binding: number;
 }
 
-// Extract shader metadata
 const extractShaderMetadata = (shader: string, wildcards: WildCard[]) => {
   const workgroupMatch = shader.match(/@workgroup_size\s*\(([^)]*)\)/);
   const workgroupSize = workgroupMatch ? workgroupMatch[1].trim() : null;
@@ -1716,9 +1764,9 @@ const extractShaderMetadata = (shader: string, wildcards: WildCard[]) => {
   let computeDimension = 2; // Default to 2D
 
   if (isComputeShader) {
-    const computeMatch = shader.match(/@compute\s*\(([^)]*)\)/);
-    if (computeMatch) {
-      const expression = computeMatch[1].trim();
+    const numThreadsMatch = shader.match(SHADER_PATTERNS.numThreadsDecorator);
+    if (numThreadsMatch) {
+      const expression = numThreadsMatch[1].trim();
 
       // Check if expression contains wildcards
       const wildcardMatch = wildcards.find((w) => expression.includes(`${WILDCARDS_PREFIX}${w.name}`));
@@ -1853,17 +1901,17 @@ const addGroupAndBinding = (line: string, resources: ResourceBase[]): string => 
   return line;
 };
 
-// Main transformation function
 const transformToWGSL = (shader: string, resources: ResourceBase[], wildcards: WildCard[]): string => {
   // Extract metadata
   const { workgroupSize, isComputeShader, computeDimension } = extractShaderMetadata(shader, wildcards);
 
-  // Handle entry point decorators
   let wgslCode = shader
-    .replace(SHADER_PATTERNS.computeDecorator, "@compute")
-    .replace(SHADER_PATTERNS.fragmentDecorator, "@fragment");
+    .replace(new RegExp(`${SHADER_DECORATORS.count}\\s*\\([^)]+\\)\\s*`, "g"), "")
+    .replace(new RegExp(`${SHADER_DECORATORS.numThreads}\\s*\\([^)]+\\)\\s*`, "g"), "")
+    .replace(/@compute\s*(?=(?:@[^\n]+\s*)*fn)/, "@compute ")
+    .replace(/@fragment\s*(?=(?:@[^\n]+\s*)*fn)/, "@fragment ")
+    .replace(/@vertex\s*(?=(?:@[^\n]+\s*)*fn)/, "@vertex ");
 
-  // Split and process code sections
   const sections = splitCodeIntoSections(wgslCode);
   wgslCode = sections
     .map((section) => {
@@ -1878,41 +1926,31 @@ const transformToWGSL = (shader: string, resources: ResourceBase[], wildcards: W
     .filter((line) => line.length > 0)
     .join("\n");
 
-  // Add workgroup size for compute shaders
+  // Handle compute shader workgroup size
   if (isComputeShader) {
-    const finalWorkgroupSize = workgroupSize || DEFAULT_WORKGROUP_SIZES[`${computeDimension}d` as ComputeDimension];
-    wgslCode = wgslCode.replace("@compute\nfn main", `@compute @workgroup_size(${finalWorkgroupSize})\nfn main`);
+    // If @workgroup_size isn't present, add it using either the provided size or default
+    if (!wgslCode.includes("@workgroup_size")) {
+      const finalWorkgroupSize = workgroupSize || DEFAULT_WORKGROUP_SIZES[`${computeDimension}d` as ComputeDimension];
+      wgslCode = wgslCode.replace(/(@compute\s*)(?:@[^\n]+\s*)*fn/, `$1@workgroup_size(${finalWorkgroupSize}) fn`);
+    }
   }
 
   return wgslCode;
 };
-// function dependsOnResolutionWildcard(resources: ResourceBase[]) {
-//   for (let i = 0; i < resources.length; i++) {
-//     const r = resources[i] as TextureObject;
-//     if (r.wildcards.includes(WILDCARDS.resolution)) return true;
-//   }
-
-//   return false;
-// }
-
-// Main parsing function
 const parseShader = (inputCode: string, wildcards: WildCard[] = []): ShaderMetadata => {
   try {
     const shaderCode = removeComments(inputCode);
     const hasCompute = SHADER_PATTERNS.computeDecorator.test(shaderCode);
+    const hasVertex = SHADER_PATTERNS.vertexDecorator.test(shaderCode);
     const hasFragment = SHADER_PATTERNS.fragmentDecorator.test(shaderCode);
 
-    if (hasCompute && hasFragment) {
-      throw new Error("Shader cannot be both compute and fragment");
+    if (hasCompute && (hasVertex || hasFragment)) {
+      throw new Error("Compute shader cannot be combined with vertex or fragment shaders");
     }
 
     // Parse resources with wildcards
     const resources = parseResources(shaderCode, wildcards);
     const code = transformToWGSL(shaderCode, resources, wildcards);
-
-    // const dependsOnResolution = resources.some((resource) =>
-    //   resource.wildcards.some((wildcard) => wildcards.some((w) => w.name === wildcard.replace(WILDCARDS_PREFIX, "")))
-    // );
 
     if (hasCompute) {
       return {
@@ -1923,10 +1961,19 @@ const parseShader = (inputCode: string, wildcards: WildCard[] = []): ShaderMetad
       };
     }
 
-    if (hasFragment) {
+    // Check for visualizer shader (vertex + fragment)
+    if (hasVertex || hasFragment) {
+      // Validate that we have both vertex and fragment
+      if (!hasVertex) {
+        throw new Error("Fragment shader found but missing required vertex shader");
+      }
+      if (!hasFragment) {
+        throw new Error("Vertex shader found but missing required fragment shader");
+      }
+
       return {
-        type: "fragment",
-        metadata: parseFragmentMetadata(shaderCode, resources, wildcards),
+        type: "visualizer",
+        metadata: parseVisualizerMetadata(shaderCode, resources, wildcards),
         resources,
         code,
       };
@@ -1941,6 +1988,7 @@ const parseShader = (inputCode: string, wildcards: WildCard[] = []): ShaderMetad
     throw new Error(`Shader parsing error: ${error.message}`);
   }
 };
+
 interface ShaderMetadataDiff {
   shaderReset: boolean;
   // dependsOnResolutionChanged: boolean;
@@ -2088,8 +2136,8 @@ function areReferenceResourcesEqual(a: ReferenceObject, b: ReferenceObject): boo
 
 // Helper function to compare metadata objects
 function areMetadataEqual(
-  before?: ComputeShaderMetadata | FragmentShaderMetadata,
-  after?: ComputeShaderMetadata | FragmentShaderMetadata
+  before?: ComputeShaderMetadata | VisualizerShaderMetadata,
+  after?: ComputeShaderMetadata | VisualizerShaderMetadata
 ): boolean {
   if (!before && !after) return true;
   if (!before || !after) return false;
@@ -2119,6 +2167,7 @@ function areMetadataEqual(
 type StructDefinition = {
   fields: Record<string, string>; // fieldName -> fieldType
 };
+
 function parseWGSLStruct(structCode: string): StructDefinition {
   // Match the struct content between braces
   const match = structCode.match(/struct\s+\w+\s*\{([^}]+)\}/);
@@ -2206,7 +2255,7 @@ export {
   parseShader,
   type BufferObject,
   type ComputeShaderMetadata,
-  type FragmentShaderMetadata,
+  type VisualizerShaderMetadata,
   type ParsedDecorators,
   type ReferenceObject,
   type ResourceBase,
@@ -2215,4 +2264,5 @@ export {
   type TextureObject,
   type UniformObject,
   type ValidationError,
+  type ShaderType,
 };

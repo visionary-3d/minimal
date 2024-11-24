@@ -226,7 +226,7 @@ export class UniformBuffer {
       const u = uniforms[i];
       const offset = this.offsets[i];
 
-      // u.update();
+      u.update();
 
       const value = u.array;
 

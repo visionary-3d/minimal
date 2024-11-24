@@ -2,13 +2,13 @@ import { ShaderPass } from "../composer/Pass";
 import { Vector2 } from "../math/Vector2";
 
 import Encoder from "../composer/Encoder";
-import { Uniform, UniformBuffer } from "../tools/UniformBuffer";
+import { Uniform, UniformBuffer, UniformList } from "../tools/UniformBuffer";
 import { GPUSource } from "../types/types";
 import {
   BufferObject,
   ComputeShaderMetadata,
   diffShaderMetadata,
-  FragmentShaderMetadata,
+  VisualizerShaderMetadata,
   getWGSLTypeSize,
   parseShader,
   ReferenceObject,
@@ -19,22 +19,13 @@ import {
   TextureObject,
   UniformObject,
   WildCard,
+  ShaderType,
 } from "./Parsing";
+import { Camera, PerspectiveCamera, Quaternion, Vector3 } from "../math";
 
 // TODO: parent.child
 function pc(parent: string, child: string) {
   return parent + "." + child;
-}
-
-function setRenderSize(resolutionVector: Vector2, device: GPUDevice) {
-  resolutionVector.set(
-    Math.floor(
-      Math.max(1, Math.min(window.innerWidth /*  * window.devicePixelRatio */, device.limits.maxTextureDimension2D))
-    ),
-    Math.floor(
-      Math.max(1, Math.min(window.innerHeight /*  * window.devicePixelRatio */, device.limits.maxTextureDimension2D))
-    )
-  );
 }
 
 export class Shader extends ShaderPass {
@@ -42,7 +33,7 @@ export class Shader extends ShaderPass {
   parsed: ShaderMetadata;
   wildcards: WildCard[];
   uniformsMap: Map<string, Uniform<any>>;
-  private infoLayout: GPUBindGroupLayout;
+  private infoLayout!: GPUBindGroupLayout;
   private fragmentPipeline: GPURenderPipeline | null = null;
   private computePipeline: GPUComputePipeline | null = null;
   private infoBindGroup: GPUBindGroup;
@@ -50,82 +41,43 @@ export class Shader extends ShaderPass {
   private layout: GPUBindGroupLayout;
   private bindGroup!: GPUBindGroup;
   private oldShader: string;
-  private shaderStage: number;
   private canvas?: HTMLCanvasElement;
   private context?: GPUCanvasContext;
-  private uResolution: Uniform<Vector2>;
-  private uPixelRatio: Uniform<number>;
-  private uAspect: Uniform<number>;
-  private uTime: Uniform<number>;
   private uniformBuffers: UniformBuffer[];
   private shouldReset: boolean = false;
 
-  constructor(device: GPUDevice, name: string, shader: string, wildcards: WildCard[] = []) {
-    const resolutionVec2 = new Vector2();
-    const uResolution = new Uniform(resolutionVec2);
-    const uPixelRatio = new Uniform(0);
-    const uAspect = new Uniform(0);
-    const uTime = new Uniform(0);
-
-    const uniforms = {
-      uResolution,
-      uAspect,
-      uTime,
-    };
-
-
+  constructor(
+    device: GPUDevice,
+    name: string,
+    shader: string,
+    wildcards: WildCard[] = [],
+    uniforms: UniformList<any> = {}
+  ) {
     const parsed = parseShader(shader, wildcards);
 
     // Base shader code that's common for both compute and fragment shaders
-    const baseCode = /* wgsl */ `
-    // struct Camera { 
-    //   position: vec3f,
-    //   quaternion: vec4f,
-    //   fov: f32, 
-    //   near: f32, 
-    //   far: f32, 
-    //   tan_half_fov: f32,
-    // };
+    const finalCode = /* wgsl */ `
+    struct Camera { 
+      position: vec3f,
+      quaternion: vec4f,
+      fov: f32, 
+      near: f32, 
+      far: f32, 
+      tan_half_fov: f32,
+    };
 
-    struct InternalInfoUniforms {
-      // camera: Camera,
+    struct InternalWindowInfoUniforms {
+      camera: Camera,
       resolution: vec2f,
       aspect: f32,
       time: f32,
     };
 
-    @group(1) @binding(0) var<uniform> window: InternalInfoUniforms;
+    @group(1) @binding(0) var<uniform> window: InternalWindowInfoUniforms;
 
     ${parsed.code}
     `;
 
-    // Add vertex shader code only for fragment shaders
-    const finalCode =
-      parsed.type === "fragment"
-        ? /* wgsl */ `
-    ${baseCode}
-
-    struct VertexOutput {
-      @builtin(position) Position: vec4f,
-    };
-
-    @vertex
-    fn vert_main(@builtin(vertex_index) VertexIndex: u32) -> VertexOutput {
-      var pos = array<vec2f, 6> (
-        vec2(-1.0, -1.0),
-        vec2(1.0, -1.0),
-        vec2(1.0, 1.0),
-        vec2(-1.0, -1.0),
-        vec2(-1.0, 1.0),
-        vec2(1.0, 1.0)
-      );
-
-      var output: VertexOutput;
-      output.Position = vec4f(pos[VertexIndex], 0.0, 1.0);
-      return output;
-    }
-    `
-        : baseCode;
     super(device, finalCode, uniforms);
 
     this.oldShader = shader;
@@ -135,38 +87,35 @@ export class Shader extends ShaderPass {
 
     this.dependOnWildCards();
 
-    this.uResolution = uResolution;
-    this.uPixelRatio = uPixelRatio;
-    this.uAspect = uAspect;
-    this.uTime = uTime;
-
     this.uniformsMap = new Map<string, Uniform<any>>();
     this.uniformBuffers = new Array<UniformBuffer>();
 
     this.createResources(parsed.resources);
 
-    this.shaderStage = parsed.type === "compute" ? GPUShaderStage.COMPUTE : GPUShaderStage.FRAGMENT;
+    const visibility =
+      parsed.type === "visualizer" ? GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT : GPUShaderStage.COMPUTE;
 
-    this.infoLayout = device.createBindGroupLayout({
-      label: "Shader Node Layout",
+    this.infoLayout = this.initInfoLayout(visibility);
+
+    this.infoBindGroup = device.createBindGroup({
+      layout: this.infoLayout,
       entries: [
         {
           binding: 0,
-          visibility: this.shaderStage,
-          buffer: {
-            type: "uniform",
+          resource: {
+            buffer: this.uniformBuffer.buffer,
           },
         },
       ],
     });
 
-    this.layout = this.initLayout(parsed.resources);
+    this.layout = this.initLayout(parsed.resources, visibility);
 
     // Create the appropriate pipeline based on shader type
     if (parsed.type === "compute") {
       this.createComputePipeline(device);
-    } else if (parsed.type === "fragment") {
-      const m = parsed.metadata as FragmentShaderMetadata;
+    } else if (parsed.type === "visualizer") {
+      const m = parsed.metadata as VisualizerShaderMetadata;
       if (m.canvas && m.canvasSize) {
         this.canvas = document.createElement("canvas");
         const [x, y] = m.canvasSize;
@@ -191,18 +140,6 @@ export class Shader extends ShaderPass {
       this.createFragmentPipeline(device);
     }
 
-    this.infoBindGroup = device.createBindGroup({
-      layout: this.infoLayout,
-      entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: this.uniformBuffer.buffer,
-          },
-        },
-      ],
-    });
-
     this.renderPassDescriptor = {
       colorAttachments: [
         {
@@ -213,18 +150,6 @@ export class Shader extends ShaderPass {
         },
       ],
     } as any;
-
-    const resize = () => {
-      const res = this.uResolution.value as Vector2;
-      setRenderSize(res, this.device);
-      this.uAspect.set(res.x / res.y);
-      this.uPixelRatio.set(window.devicePixelRatio);
-      this.uResolution.set(res);
-    }
-
-    resize()
-
-    window.addEventListener("resize", resize);
   }
 
   getCanvas() {
@@ -240,6 +165,7 @@ export class Shader extends ShaderPass {
   }
 
   private createComputePipeline(device: GPUDevice) {
+    const m = this.parsed.metadata as ComputeShaderMetadata;
     const pipelineLayout = device.createPipelineLayout({
       bindGroupLayouts: [this.layout, this.infoLayout],
     });
@@ -250,12 +176,14 @@ export class Shader extends ShaderPass {
         module: device.createShaderModule({
           code: this.shader,
         }),
-        entryPoint: "main",
+        entryPoint: m.mainFunction,
       },
     });
   }
 
   private createFragmentPipeline(device: GPUDevice) {
+    const m = this.parsed.metadata as VisualizerShaderMetadata;
+
     const pipelineLayout = device.createPipelineLayout({
       bindGroupLayouts: [this.layout, this.infoLayout],
     });
@@ -266,13 +194,13 @@ export class Shader extends ShaderPass {
         module: device.createShaderModule({
           code: this.shader,
         }),
-        entryPoint: "vert_main",
+        entryPoint: m.vertexMain,
       },
       fragment: {
         module: device.createShaderModule({
           code: this.shader,
         }),
-        entryPoint: "main",
+        entryPoint: m.fragmentMain,
         targets: [
           {
             format: this.outputTexture ? this.outputTexture.format : navigator.gpu.getPreferredCanvasFormat(),
@@ -286,8 +214,8 @@ export class Shader extends ShaderPass {
   }
 
   get outputTexture() {
-    if (this.parsed.type === "fragment") {
-      const metadata = this.parsed.metadata as FragmentShaderMetadata;
+    if (this.parsed.type === "visualizer") {
+      const metadata = this.parsed.metadata as VisualizerShaderMetadata;
       return this.outputs.get(metadata.view) as GPUTexture;
     }
     return undefined;
@@ -313,14 +241,14 @@ export class Shader extends ShaderPass {
       if (this.parsed.type === "compute") {
         this.createComputePipeline(device);
         this.fragmentPipeline = null;
-      } else if (this.parsed.type === "fragment") {
+      } else if (this.parsed.type === "visualizer") {
         this.createFragmentPipeline(device);
         this.computePipeline = null;
       }
     }
 
     if (this.canvas) {
-      const m = this.parsed.metadata as FragmentShaderMetadata;
+      const m = this.parsed.metadata as VisualizerShaderMetadata;
       const [x, y] = m.canvasSize as [number, number];
       this.canvas.width = x;
       this.canvas.height = y;
@@ -442,7 +370,22 @@ export class Shader extends ShaderPass {
     this.outputs.set(resource.name, sampler);
   }
 
-  initLayout(resources: ResourceBase[]) {
+  initInfoLayout(visibility: GPUShaderStageFlags) {
+    return this.device.createBindGroupLayout({
+      label: "Shader Node Layout",
+      entries: [
+        {
+          binding: 0,
+          visibility,
+          buffer: {
+            type: "uniform",
+          },
+        },
+      ],
+    });
+  }
+
+  initLayout(resources: ResourceBase[], visibility: GPUShaderStageFlags) {
     const entries: GPUBindGroupLayoutEntry[] = [];
 
     for (const resource of resources) {
@@ -450,7 +393,7 @@ export class Shader extends ShaderPass {
 
       const entry: GPUBindGroupLayoutEntry = {
         binding: resource.binding,
-        visibility: this.shaderStage,
+        visibility,
       };
 
       switch (resource.resourceType) {
@@ -607,15 +550,12 @@ export class Shader extends ShaderPass {
       this.reset();
     }
 
-    const time = performance.now() / 1000;
-    this.uTime.set(time);
     this.uniformBuffer.update();
 
     for (let i = 0; i < this.uniformBuffers.length; i++) {
       const ub = this.uniformBuffers[i];
       ub.update();
     }
-
 
     if (this.parsed.type === "compute" && this.computePipeline) {
       // Compute shader path
@@ -627,9 +567,9 @@ export class Shader extends ShaderPass {
       const [x, y, z] = this.getComputeWorkgroups();
       computePass.dispatchWorkgroups(x, y, z);
       computePass.end();
-    } else if (this.parsed.type === "fragment" && this.fragmentPipeline) {
+    } else if (this.parsed.type === "visualizer" && this.fragmentPipeline) {
       // Fragment shader path
-      const m = this.parsed.metadata as FragmentShaderMetadata;
+      const m = this.parsed.metadata as VisualizerShaderMetadata;
       const colors = this.renderPassDescriptor.colorAttachments as GPURenderPassColorAttachment[];
 
       if (m.canvas && this.context) {
@@ -645,7 +585,7 @@ export class Shader extends ShaderPass {
       passEncoder.setPipeline(this.fragmentPipeline);
       passEncoder.setBindGroup(0, this.bindGroup);
       passEncoder.setBindGroup(1, this.infoBindGroup);
-      passEncoder.draw(6, 1, 0, 0);
+      passEncoder.draw(m.vertexCount, 1, 0, 0);
       passEncoder.end();
     }
   }
