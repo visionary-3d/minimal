@@ -2,7 +2,7 @@
 import "./styles/style.css";
 
 // minimal
-import { Color, Composer, GUI, Shader, WildCard } from "minimal-gpu";
+import { Color, Composer, GUI, Shader, Wildcard } from "minimal-gpu";
 
 export const startApp = async () => {
   // create webgpu device
@@ -63,7 +63,7 @@ export const startApp = async () => {
 
   // create shaders
 
-  const resolution = new WildCard("resolution", [window.innerWidth, window.innerHeight]);
+  const resolution = new Wildcard("resolution", [window.innerWidth, window.innerHeight]);
 
   window.addEventListener("resize", () => {
     resolution.set(window.innerWidth, window.innerHeight); // update wildcard
@@ -111,10 +111,8 @@ export const startApp = async () => {
   });
 };
 
-
 async function init() {
   await startApp();
 }
 
 init();
-

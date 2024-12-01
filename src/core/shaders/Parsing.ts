@@ -26,12 +26,12 @@ const DECORATORS = {
   maxAnisotropy: "@maxAnisotropy",
 } as const;
 
-export class WildCard {
+export class Wildcard {
   shaders: Shader[] = [];
 
   constructor(public readonly name: string, public value: number[]) {
     if (value.length < 1 || value.length > 4) {
-      throw new Error(`WildCard value must have 1-4 components, got ${value.length}`);
+      throw new Error(`Wildcard value must have 1-4 components, got ${value.length}`);
     }
   }
 
@@ -71,7 +71,7 @@ function floorArray(arr: number[]) {
   return arr.map((n) => Math.floor(n));
 }
 
-function evaluateWildcardExpression(expression: string, wildcards: WildCard[]): number[] {
+function evaluateWildcardExpression(expression: string, wildcards: Wildcard[]): number[] {
   // Find all wildcard usages in the expression
   const wildcardPattern = new RegExp(`${WILDCARDS_PREFIX}(\\w+)(\\.[xyzwrgba]+)?`, "g");
   const matches = [...expression.matchAll(wildcardPattern)];
@@ -472,7 +472,7 @@ const evaluateMathExpression = (expression: string): number => {
   }
 };
 
-const evaluateSizeExpression = (input: string, expectedDimensions: number, wildcards: WildCard[]): number[] => {
+const evaluateSizeExpression = (input: string, expectedDimensions: number, wildcards: Wildcard[]): number[] => {
   const expression = input.trim();
 
   if (/^\d+$/.test(expression)) {
@@ -500,7 +500,7 @@ const validateAndResolveTextureSize = (
   sizeParams: string[],
   textureType: string,
   lineIndex: number,
-  wildcards: WildCard[]
+  wildcards: Wildcard[]
 ): number[] => {
   const expectedDimensions = getExpectedDimensions(textureType);
 
@@ -577,7 +577,7 @@ const validateAndResolveBufferSize = (
   sizeParams: string[],
   bufferType: string,
   lineIndex: number,
-  wildcards: WildCard[]
+  wildcards: Wildcard[]
 ): number => {
   try {
     // Buffer size should always be a single parameter
@@ -668,7 +668,7 @@ const parseBufferDecorators = (line: string) => {
 };
 
 // Helper function to extract wildcards from expressions
-function extractWildcards(expression: string, wildcards: WildCard[]): string[] {
+function extractWildcards(expression: string, wildcards: Wildcard[]): string[] {
   const extractedWildcards = new Set<string>();
 
   wildcards.forEach((wildcard) => {
@@ -682,7 +682,7 @@ function extractWildcards(expression: string, wildcards: WildCard[]): string[] {
 }
 
 // Helper to collect wildcards from size parameters
-function collectSizeWildcards(sizeParams: string[], wildcards: WildCard[]): string[] {
+function collectSizeWildcards(sizeParams: string[], wildcards: Wildcard[]): string[] {
   const collectedWildcards = new Set<string>();
 
   sizeParams.forEach((param) => {
@@ -733,7 +733,7 @@ const parseTextureDeclaration = (
   line: string,
   index: number,
   fullCode: string,
-  wildcards: WildCard[]
+  wildcards: Wildcard[]
 ): TextureObject | null => {
   const errors = validateTextureDeclaration(line);
   if (errors.length > 0) {
@@ -808,7 +808,7 @@ const computeBindingIndices = (resources: ResourceBase[]): ResourceBase[] => {
   return texturesWithBindings.sort((a, b) => (a.group !== b.group ? a.group - b.group : a.binding - b.binding));
 };
 
-const parseTextures = (code: string, wildcards: WildCard[]) => {
+const parseTextures = (code: string, wildcards: Wildcard[]) => {
   const textureLines = code.match(PATTERNS.textureLinePattern) || [];
 
   if (!textureLines.length) {
@@ -823,7 +823,7 @@ const parseTextures = (code: string, wildcards: WildCard[]) => {
 };
 
 // Parse buffers from code
-const parseBuffers = (code: string, wildcards: WildCard[]) => {
+const parseBuffers = (code: string, wildcards: Wildcard[]) => {
   const bufferLines = code.match(PATTERNS.bufferLinePattern) || [];
 
   if (!bufferLines.length) {
@@ -848,7 +848,7 @@ const validateTextureType = (textureTypeDeclaration: string) => {
   return textureTypeDeclaration;
 };
 
-const parseBufferDeclaration = (line: string, index: number, wildcards: WildCard[]): BufferObject | null => {
+const parseBufferDeclaration = (line: string, index: number, wildcards: Wildcard[]): BufferObject | null => {
   const errors = validateBufferDeclaration(line);
   if (errors.length > 0) {
     errors.forEach((err) => console.error(`Buffer at position ${index}: ${err.message}`));
@@ -930,7 +930,7 @@ const validateAndResolveUniformValues = (
   fieldType: string,
   values: string[],
   lineIndex: number,
-  wildcards: WildCard[]
+  wildcards: Wildcard[]
 ): number[] => {
   try {
     // Determine expected number of components based on type
@@ -1022,7 +1022,7 @@ const parseUniformDeclaration = (
   code: string,
   line: string,
   index: number,
-  wildcards: WildCard[]
+  wildcards: Wildcard[]
 ): UniformObject | null => {
   const errors = validateUniformDeclaration(line);
   if (errors.length > 0) {
@@ -1080,7 +1080,7 @@ const parseUniformDeclaration = (
     return null;
   }
 };
-const parseUniforms = (code: string, wildcards: WildCard[]) => {
+const parseUniforms = (code: string, wildcards: Wildcard[]) => {
   const uniformLines = code.match(PATTERNS.uniformLinePattern) || [];
 
   if (!uniformLines.length) {
@@ -1183,7 +1183,7 @@ const validateSamplerNumericParameter = (
   min: number,
   max: number,
   paramName: string,
-  wildcards: WildCard[]
+  wildcards: Wildcard[]
 ): number => {
   try {
     // Evaluate using wildcard system
@@ -1212,7 +1212,7 @@ const validateSamplerNumericParameter = (
     throw new Error(`Invalid ${paramName} expression "${value}": ${error.message}`);
   }
 };
-const parseSamplerDeclaration = (line: string, index: number, wildcards: WildCard[]): SamplerObject | null => {
+const parseSamplerDeclaration = (line: string, index: number, wildcards: Wildcard[]): SamplerObject | null => {
   const errors = validateSamplerDeclaration(line);
   if (errors.length > 0) {
     errors.forEach((err) => console.error(`Sampler at position ${index}: ${err.message}`));
@@ -1305,7 +1305,7 @@ const parseSamplerDeclaration = (line: string, index: number, wildcards: WildCar
 };
 
 // Update parseSamplers to pass dimensions
-const parseSamplers = (code: string, wildcards: WildCard[]) => {
+const parseSamplers = (code: string, wildcards: Wildcard[]) => {
   const samplerLines = code.match(PATTERNS.samplerLinePattern) || [];
 
   if (!samplerLines.length) {
@@ -1474,7 +1474,7 @@ const parseReferences = (code: string) => {
   return parsedReferences;
 };
 
-const parseResources = (code: string, wildcards: WildCard[]) => {
+const parseResources = (code: string, wildcards: Wildcard[]) => {
   const parsedTextures = parseTextures(code, wildcards) as ResourceBase[];
   const parsedBuffers = parseBuffers(code, wildcards) as ResourceBase[];
   const parsedUniforms = parseUniforms(code, wildcards) as ResourceBase[];
@@ -1555,7 +1555,7 @@ const padTo3D = (arr: number[]): [number, number, number] => {
 };
 
 // Parse compute shader metadata
-const parseComputeMetadata = (code: string, wildcards: WildCard[] = []): ComputeShaderMetadata => {
+const parseComputeMetadata = (code: string, wildcards: Wildcard[] = []): ComputeShaderMetadata => {
   // Parse workgroup count from @compute decorator
   const computeMatch = code.match(SHADER_PATTERNS.computeDecorator);
   if (!computeMatch) {
@@ -1632,7 +1632,7 @@ const validateCanvasSize = (size: number[], decoratorName: string): void => {
 const parseFragmentMetadata = (
   code: string,
   resources: ResourceBase[],
-  wildcards: WildCard[] = []
+  wildcards: Wildcard[] = []
 ): FragmentShaderMetadata => {
   // Parse target texture from @fragment decorator
   const fragmentMatch = code.match(SHADER_PATTERNS.fragmentDecorator);
@@ -1708,7 +1708,7 @@ interface ResourceBase {
 }
 
 // Extract shader metadata
-const extractShaderMetadata = (shader: string, wildcards: WildCard[]) => {
+const extractShaderMetadata = (shader: string, wildcards: Wildcard[]) => {
   const workgroupMatch = shader.match(/@workgroup_size\s*\(([^)]*)\)/);
   const workgroupSize = workgroupMatch ? workgroupMatch[1].trim() : null;
 
@@ -1854,7 +1854,7 @@ const addGroupAndBinding = (line: string, resources: ResourceBase[]): string => 
 };
 
 // Main transformation function
-const transformToWGSL = (shader: string, resources: ResourceBase[], wildcards: WildCard[]): string => {
+const transformToWGSL = (shader: string, resources: ResourceBase[], wildcards: Wildcard[]): string => {
   // Extract metadata
   const { workgroupSize, isComputeShader, computeDimension } = extractShaderMetadata(shader, wildcards);
 
@@ -1896,7 +1896,7 @@ const transformToWGSL = (shader: string, resources: ResourceBase[], wildcards: W
 // }
 
 // Main parsing function
-const parseShader = (inputCode: string, wildcards: WildCard[] = []): ShaderMetadata => {
+const parseShader = (inputCode: string, wildcards: Wildcard[] = []): ShaderMetadata => {
   try {
     const shaderCode = removeComments(inputCode);
     const hasCompute = SHADER_PATTERNS.computeDecorator.test(shaderCode);

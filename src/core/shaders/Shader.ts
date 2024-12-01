@@ -18,7 +18,7 @@ import {
   ShaderMetadata,
   TextureObject,
   UniformObject,
-  WildCard,
+  Wildcard,
 } from "./Parsing";
 
 // TODO: parent.child
@@ -40,7 +40,7 @@ function setRenderSize(resolutionVector: Vector2, device: GPUDevice) {
 export class Shader extends ShaderPass {
   name: string;
   parsed: ShaderMetadata;
-  wildcards: WildCard[];
+  wildcards: Wildcard[];
   uniformsMap: Map<string, Uniform<any>>;
   private infoLayout: GPUBindGroupLayout;
   private fragmentPipeline: GPURenderPipeline | null = null;
@@ -60,7 +60,7 @@ export class Shader extends ShaderPass {
   private uniformBuffers: UniformBuffer[];
   private shouldReset: boolean = false;
 
-  constructor(device: GPUDevice, name: string, shader: string, wildcards: WildCard[] = []) {
+  constructor(device: GPUDevice, name: string, shader: string, wildcards: Wildcard[] = []) {
     const resolutionVec2 = new Vector2();
     const uResolution = new Uniform(resolutionVec2);
     const uPixelRatio = new Uniform(0);
@@ -72,7 +72,6 @@ export class Shader extends ShaderPass {
       uAspect,
       uTime,
     };
-
 
     const parsed = parseShader(shader, wildcards);
 
@@ -133,7 +132,7 @@ export class Shader extends ShaderPass {
     this.parsed = parsed;
     this.wildcards = wildcards;
 
-    this.dependOnWildCards();
+    this.dependOnWildcards();
 
     this.uResolution = uResolution;
     this.uPixelRatio = uPixelRatio;
@@ -220,15 +219,15 @@ export class Shader extends ShaderPass {
       this.uAspect.set(res.x / res.y);
       this.uPixelRatio.set(window.devicePixelRatio);
       this.uResolution.set(res);
-    }
+    };
 
-    resize()
+    resize();
 
     window.addEventListener("resize", resize);
   }
 
   getResource(name: string) {
-    return this.outputs.get(name)
+    return this.outputs.get(name);
   }
 
   getCanvas() {
@@ -236,7 +235,7 @@ export class Shader extends ShaderPass {
     else throw Error("This shader doesn't have a canvas decorator (@canvas), so no canvas element was created!");
   }
 
-  private dependOnWildCards() {
+  private dependOnWildcards() {
     for (let i = 0; i < this.wildcards.length; i++) {
       const w = this.wildcards[i];
       w.addDependency(this);
@@ -619,7 +618,6 @@ export class Shader extends ShaderPass {
       const ub = this.uniformBuffers[i];
       ub.update();
     }
-
 
     if (this.parsed.type === "compute" && this.computePipeline) {
       // Compute shader path

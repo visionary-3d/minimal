@@ -124,7 +124,7 @@ example:
 ```
 
 
-### WildCards
+### Wildcards
 
 Wildcards are special variables that can be used as inputs in MSL decorators. Wildcards can be (f32, vec2<f32>, vec3<f32>, vec4<f32>).
 
@@ -134,7 +134,7 @@ const rShader = /* wgsl */ `
   @buffer(@size(wc.resolution.x * wc.resolution.y)) var<storage, read> output_buffer: array<f32>;
 `;
 
-const resolution = new WildCard("resolution", [window.innerWidth, window.innerHeight]);
+const resolution = new Wildcard("resolution", [window.innerWidth, window.innerHeight]);
 
 window.addEventListener("resize", () => {
   resolution.set(window.innerWidth, window.innerHeight); // update wildcard
@@ -157,7 +157,7 @@ Shaders are the core building block in Minimal.
 General Example of Shaders and Referencing:
 ```ts
 
-import { Color, Composer, GUI, Shader, WildCard } from "minimal-gpu";
+import { Color, Composer, GUI, Shader, Wildcard } from "minimal-gpu";
 
 // create webgpu device
 
@@ -217,7 +217,7 @@ fn main(@builtin(position) coord: vec4f) -> @location(0) vec4<f32> {
 
 // create shaders
 
-const resolution = new WildCard("resolution", [window.innerWidth, window.innerHeight]);
+const resolution = new Wildcard("resolution", [window.innerWidth, window.innerHeight]);
 
 window.addEventListener("resize", () => {
   resolution.set(window.innerWidth, window.innerHeight); // update wildcard
